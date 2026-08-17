@@ -1,0 +1,25 @@
+name: "market-justice-education-issp"
+output_dir: "." # Esto es para que se compile en el rootdir
+navbar:
+  title: "MJP Education ISSP"
+  right:
+    - text: "Paper"
+      href: "paper.html"
+    - text: ""
+      icon: fa-file-pdf
+      href: "paper.pdf"
+    - text: ""
+      icon: fa-github fa-lg
+      href: https://github.com/jus-mer/market-justice-education-issp
+
+output:
+  bookdown::html_document2:
+      css: "custom.css"
+      theme: flatly
+  bookdown::pdf_document2:
+    template: null
+    number_sections: false
+    toc: false
+    keep_tex: false
+    pandoc_args:
+      - --template=input/mytemplate.tex #custom template para usar autores con afiliacion
