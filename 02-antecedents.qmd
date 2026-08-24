@@ -11,9 +11,8 @@ Market justice preferences refer to the belief that access to goods and services
 
 - uni-variate evidence
 
-## Associated structural individual factors
+## Class and subjective status (TU)
 
-The paradox of inequality holds that citizens in more unequal societies endorse meritocracy more strongly, legitimizing disparities [@mijs_paradox_2021], but this is contested: European data show rising inequality leads people to disagree more strongly with meritocratic principles [@bartram_does_2023], and a reanalysis of 35 countries finds no consistent upward trend in meritocratic beliefs [@wiesner_effort_2026]. South Africa presents a further anomaly where stronger meritocratic beliefs correlate positively with redistribution preferences [@kirsten_meritocracy_2025].
 
 # Meritocracy and market justice (JC)
 
@@ -29,9 +28,7 @@ However, this relationship may be partially explained by the endorsement of meri
 
 $H_3$: The relationship between socioeconomic status and support for market justice policies is mediated by meritocratic beliefs.
 
-
-
-
+[[The paradox of inequality holds that citizens in more unequal societies endorse meritocracy more strongly, legitimizing disparities [@mijs_paradox_2021], but this is contested: European data show rising inequality leads people to disagree more strongly with meritocratic principles [@bartram_does_2023], and a reanalysis of 35 countries finds no consistent upward trend in meritocratic beliefs [@wiesner_effort_2026]. South Africa presents a further anomaly where stronger meritocratic beliefs correlate positively with redistribution preferences [@kirsten_meritocracy_2025].]]
 
 
 # Contextual factors (JC)
