@@ -1,6 +1,6 @@
 ---
 title: "Data preparation"
-subtitle: "Market justice preferences with ISSP (1999-2019)"
+subtitle: "Market justice preferences with ISSP (1987-2019)"
 author: "Tomás Urzúa"
 date: today
 lang: es
@@ -29,7 +29,7 @@ editor_options:
 
 # Presentation
 
-Preparación de datos para las bases correspondientes a 1999, 2009 and 2019 del [Social Inequality Module of International Social Survey Programme (ISSP)](https://www.gesis.org/en/issp/data-and-documentation/social-inequality).
+Preparation for 1987, 1992, 1999, 2009 and 2019 database from [Social Inequality Module of International Social Survey Programme (ISSP)](https://www.gesis.org/en/issp/data-and-documentation/social-inequality).
 
 ```{r}
 #| label: set
@@ -88,11 +88,558 @@ rm(list = ls())
 #| echo: true
 #| output: false
 
+issp87 <- read_dta(here("input/data/original/issp_1987.dta"))
+issp92 <- read_dta(here("input/data/original/issp_1992.dta"))
 issp99 <- read_dta(here("input/data/original/issp_1999.dta"))
 issp09 <- read_dta(here("input/data/original/issp_2009.dta"))
 issp19 <- read_dta(here("input/data/original/issp_2019.dta"))
+issp_cumu <- read_dta(here("input/data/original/issp_cumulative.dta"))
+```
+
+# ISSP 1987
+
+## Select
+
+```{r}
+
+db_proc87 <- issp87 %>%
+  select(id = v2,
+         country = v3,
+         sex = v83,
+         age = v82,
+         income = v94,
+         ess = v65,
+         nmerit_wealthy_fam = v4,
+         nmerit_educated_parents = v5,
+         merit_ambition = v7,
+         merit_effort = v9,
+         nmerit_contacts = v10,
+         nmerit_political_connection = v11,
+         nmerit_race = v12,
+         nmerit_gender = v15,
+         isco68 = v75,
+         selfemp = v77,
+         wrksup = v78,
+         weight = v107) %>%
+  janitor::clean_names()
 
 ```
+
+
+##  Recode and transform
+
+### Year
+
+```{r}
+db_proc87$year <- 1987
+db_proc87$year <- as.numeric(db_proc87$year)
+```
+
+### Country
+
+```{r}
+frq(db_proc87$country)
+db_proc87 <- db_proc87 %>%
+  mutate(country = case_when(
+    country == 1  ~ "Australia",
+    country == 2  ~ "Germany",
+    country == 3  ~ "United Kingdom",
+    country == 4  ~ "United States",
+    country == 5  ~ "Austria",
+    country == 6  ~ "Hungary",
+    country == 7  ~ "Netherlands",
+    country == 8  ~ "Italy",
+    country == 11 ~ "Switzerland",
+    country == 12 ~ "Poland",
+    TRUE ~ NA_character_
+  ))
+db_proc87$iso_country <- countrycode::countrycode(db_proc87$country, origin = "country.name", destination = "iso3c")
+frq(db_proc87$country); frq(db_proc87$iso_country)
+
+```
+
+### Sex
+```{r}
+frq(db_proc87$sex)
+db_proc87$sex <- set_na(db_proc87$sex, na = c(9), drop.levels = F)
+db_proc87 <- db_proc87 %>%
+mutate(sex = if_else(sex == 1, 'Male', 'Female'),
+       sex = factor(sex, levels = c("Male", "Female")))
+frq(db_proc87$sex)
+```
+
+### Age
+```{r}
+summary(db_proc87$age)
+db_proc87$age <- set_na(db_proc87$age, na = c(99), drop.levels = F)
+db_proc87$age <- as.numeric(db_proc87$age)
+```
+
+### Education
+
+```{r}
+degree87 <- issp_cumu %>%
+  filter(year == 1987) %>%
+  select(id = caseid, degree = DEGREE)
+
+db_proc87 <- db_proc87 %>%
+  left_join(degree87, by = "id")
+
+frq(db_proc87$degree)
+db_proc87$degree <- set_na(db_proc87$degree, na = c(-9), drop.levels = F)
+db_proc87 <- db_proc87 %>%
+  mutate(educ = case_when(degree == 0 ~ "Incomplete primary or less",
+                            degree == 1 ~ "Complete primary",
+                            degree == 2 ~ "Incomplete secondary",
+                            degree == 3 ~ "Complete secondary",
+                            degree == 4 ~ "Incomplete university",
+                            degree == 5 ~ "Complete university",
+                            TRUE ~ NA_character_),
+           educ = factor(educ,
+                           levels = c("Incomplete primary or less",
+                           "Complete primary",
+                           "Incomplete secondary",
+                           "Complete secondary",
+                           "Incomplete university",
+                           "Complete university")))
+
+db_proc87 <- db_proc87 %>%
+  mutate(educ_dic = case_when(degree %in% c(0:4) ~ 'Less than universitary',
+                              degree == 5 ~ 'Universitary',
+                              TRUE ~ NA_character_),
+         educ_dic = factor(educ_dic, levels = c("Universitary", "Less than universitary")))
+frq(db_proc87$educ)
+frq(db_proc87$educ_dic)
+```
+
+### Income
+```{r}
+
+# ntile function without NAs
+ntile_zero_na <- function(x, n = 10) {
+  out   <- rep(NA_real_, length(x))
+  is_na <- is.na(x)
+  is0   <- !is_na & x == 0
+  pos   <- !is_na & x > 0
+  out[is0] <- 0
+  if (any(pos)) out[pos] <- ntile(x[pos], n)
+  out
+}
+
+summary(as.numeric(db_proc87$income))
+db_proc87 <- db_proc87 %>%
+  mutate(
+    income = as.numeric(income),
+    income = if_else(country == "Poland" & income == 0, NA_real_, income), # 0 = self-employed (not zero income) in Poland
+    income = car::recode(income, "999990:999999 = NA"),
+    income_decil = ntile_zero_na(income, 10)
+  )
+
+db_proc87 %>%
+  group_by(country) %>%
+  summarise(n = n(), n_valid = sum(!is.na(income_decil)), .groups = "drop")
+frq(db_proc87$income_decil)
+
+```
+
+### Subjective social status
+```{r}
+frq(db_proc87$ess)
+db_proc87$ess <- set_na(db_proc87$ess, na = c(97,98,99), drop.levels = F)
+db_proc87$ess <- as.numeric(db_proc87$ess)
+frq(db_proc87$ess)
+```
+
+### Meritocratic variables
+```{r}
+frq(db_proc87$merit_effort)
+frq(db_proc87$merit_ambition)
+
+db_proc87 <- db_proc87 %>%
+  mutate(
+    across(
+      .cols = c(merit_effort, merit_ambition),
+      .fns = ~ set_na(., na = c(0,7,8,9), drop.levels = F)
+    )
+  ) # ok
+
+db_proc87$merit_effort <- sjmisc::rec(db_proc87$merit_effort,rec = "rev")
+db_proc87$merit_ambition <- sjmisc::rec(db_proc87$merit_ambition,rec = "rev")
+
+frq(db_proc87$merit_effort)
+frq(db_proc87$merit_ambition)
+```
+
+### Non-meritocratic variables
+```{r}
+frq(db_proc87$nmerit_wealthy_fam)
+frq(db_proc87$nmerit_contacts)
+frq(db_proc87$nmerit_educated_parents)
+frq(db_proc87$nmerit_political_connection)
+frq(db_proc87$nmerit_race)
+frq(db_proc87$nmerit_gender)
+
+db_proc87 <- db_proc87 %>%
+  mutate(
+    across(
+      .cols = c(nmerit_wealthy_fam, nmerit_contacts, nmerit_educated_parents,
+                nmerit_political_connection, nmerit_race, nmerit_gender),
+      .fns = ~ set_na(., na = c(0,7,8,9), drop.levels = F)
+    )
+  ) # ok
+
+db_proc87$nmerit_wealthy_fam <- sjmisc::rec(db_proc87$nmerit_wealthy_fam,rec = "rev")
+db_proc87$nmerit_contacts <- sjmisc::rec(db_proc87$nmerit_contacts,rec = "rev")
+db_proc87$nmerit_educated_parents <- sjmisc::rec(db_proc87$nmerit_educated_parents,rec = "rev")
+db_proc87$nmerit_political_connection <- sjmisc::rec(db_proc87$nmerit_political_connection,rec = "rev")
+db_proc87$nmerit_race <- sjmisc::rec(db_proc87$nmerit_race,rec = "rev")
+db_proc87$nmerit_gender <- sjmisc::rec(db_proc87$nmerit_gender,rec = "rev")
+
+frq(db_proc87$nmerit_wealthy_fam)
+frq(db_proc87$nmerit_contacts)
+frq(db_proc87$nmerit_educated_parents)
+frq(db_proc87$nmerit_political_connection)
+frq(db_proc87$nmerit_race)
+frq(db_proc87$nmerit_gender)
+
+```
+
+### Market justice healthcare
+```{r}
+# No disponible en ISSP 1987. El ítem "the rich can buy better health care
+# than the poor" fue introducido en ISSP 1999 (Social Inequality III).
+db_proc87$just_health <- NA_real_
+```
+
+### Market justice in education
+```{r}
+# No disponible en ISSP 1987, misma razón que just_health.
+db_proc87$just_educ <- NA_real_
+```
+
+### Perceived inequality
+```{r}
+# No disponible en ISSP 1987. El ítem del diagrama de pirámide social se
+# incorporó recién en ISSP 1992.
+db_proc87$perc_inequality <- NA_real_
+```
+
+### Class
+
+```{r}
+db_proc87 <- db_proc87 %>%
+  mutate(
+    # El codebook solo confirma ISCO68 de 3 dígitos para Alemania, Austria y
+    # Suiza (Nota 1); el resto de países usan escalas propias no ISCO.
+    isco68 = case_when(country %in% c("Germany", "Austria", "Switzerland") ~ as.numeric(isco68),
+                        TRUE ~ NA_real_),
+    isco68 = set_na(isco68, na = c(0,999997,999998,999999), drop.levels = F),
+    isco88_4 = isco68to88(isco68),
+    selfemp = set_na(selfemp, na = c(0,9), drop.levels = F),
+    selfemp_bin = if_else(selfemp %in% c(1,2,3), 1, 0), # incl. "self-employed with employees" y (Italia) "self-employed at someone's account"
+    nemploy_rec = NA_real_, # no existe variable de número de empleados en 1987; isco88toEGP() asume 0
+    egp5 = isco88toEGP(isco88_4, n.employees = nemploy_rec,
+                        self.employed = selfemp_bin, n.classes = 5)
+  )
+
+frq(db_proc87$egp5)
+```
+
+## Save
+
+```{r}
+db_proc87 <- db_proc87 %>%
+  select(year, country, iso_country, sex, age, educ, educ_dic, income_decil, ess, just_health, just_educ, perc_inequality, egp5, merit_effort, merit_ambition, nmerit_wealthy_fam, nmerit_contacts, nmerit_educated_parents, nmerit_political_connection, nmerit_race, nmerit_gender, weight)
+
+save(db_proc87, file = here("input/data/proc/db_proc87.RData"))
+```
+
+# ISSP 1992
+
+## Select
+
+```{r}
+
+db_proc92 <- issp92 %>%
+  select(id = v2,
+         country = v3,
+         sex = v99,
+         age = v100,
+         aus117:rp117,
+         ess = v73,
+         nmerit_wealthy_fam = v4,
+         nmerit_educated_parents = v5,
+         merit_ambition = v7,
+         merit_effort = v9,
+         nmerit_contacts = v10,
+         nmerit_political_connection = v11,
+         nmerit_race = v12,
+         nmerit_gender = v15,
+         perc_inequality = v90,
+         isco68 = v106,
+         aus106, pl106, slo106, rus106, nz106,
+         selfemp = v110,
+         nemploy = v111,
+         aus111, d111, i111, n111, rp111,
+         wrksup = v107,
+         nwrksup = v108,
+         weight = v176) %>%
+  janitor::clean_names()
+
+```
+
+##  Recode and transform
+
+### Year
+
+```{r}
+db_proc92$year <- 1992
+db_proc92$year <- as.numeric(db_proc92$year)
+```
+
+### Country
+
+```{r}
+frq(db_proc92$country)
+db_proc92 <- db_proc92 %>%
+  mutate(country = case_when(
+    country == 1  ~ "Australia",
+    country == 2  ~ "Germany",
+    country == 3  ~ "Germany",
+    country == 4  ~ "United Kingdom",
+    country == 5  ~ "United States",
+    country == 6  ~ "Austria",
+    country == 7  ~ "Hungary",
+    country == 8  ~ "Italy",
+    country == 9  ~ "Norway",
+    country == 10 ~ "Sweden",
+    country == 11 ~ "Czechia",
+    country == 12 ~ "Slovenia",
+    country == 13 ~ "Poland",
+    country == 14 ~ "Bulgaria",
+    country == 15 ~ "Russia",
+    country == 16 ~ "New Zealand",
+    country == 17 ~ "Canada",
+    country == 18 ~ "Philippines",
+    TRUE ~ NA_character_
+  ))
+db_proc92$iso_country <- countrycode::countrycode(db_proc92$country, origin = "country.name", destination = "iso3c")
+frq(db_proc92$country); frq(db_proc92$iso_country)
+
+```
+
+### Sex
+```{r}
+frq(db_proc92$sex)
+db_proc92$sex <- set_na(db_proc92$sex, na = c(9), drop.levels = F)
+db_proc92 <- db_proc92 %>%
+mutate(sex = if_else(sex == 1, 'Male', 'Female'),
+       sex = factor(sex, levels = c("Male", "Female")))
+frq(db_proc92$sex)
+```
+
+### Age
+```{r}
+summary(db_proc92$age)
+db_proc92$age <- set_na(db_proc92$age, na = c(99), drop.levels = F)
+db_proc92$age <- as.numeric(db_proc92$age)
+```
+
+### Education
+
+```{r}
+degree92 <- issp_cumu %>%
+  filter(year == 1992) %>%
+  select(id = caseid, degree = DEGREE)
+
+db_proc92 <- db_proc92 %>%
+  left_join(degree92, by = "id")
+
+frq(db_proc92$degree)
+db_proc92$degree <- set_na(db_proc92$degree, na = c(-9), drop.levels = F)
+db_proc92 <- db_proc92 %>%
+  mutate(educ = case_when(degree == 0 ~ "Incomplete primary or less",
+                            degree == 1 ~ "Complete primary",
+                            degree == 2 ~ "Incomplete secondary",
+                            degree == 3 ~ "Complete secondary",
+                            degree == 4 ~ "Incomplete university",
+                            degree == 5 ~ "Complete university",
+                            TRUE ~ NA_character_),
+           educ = factor(educ,
+                           levels = c("Incomplete primary or less",
+                           "Complete primary",
+                           "Incomplete secondary",
+                           "Complete secondary",
+                           "Incomplete university",
+                           "Complete university")))
+
+db_proc92 <- db_proc92 %>%
+  mutate(educ_dic = case_when(degree %in% c(0:4) ~ 'Less than universitary',
+                              degree == 5 ~ 'Universitary',
+                              TRUE ~ NA_character_),
+         educ_dic = factor(educ_dic, levels = c("Universitary", "Less than universitary")))
+frq(db_proc92$educ)
+frq(db_proc92$educ_dic)
+```
+
+
+
+### Income
+```{r}
+
+# ntile function without NAs
+ntile_zero_na <- function(x, n = 10) {
+  out   <- rep(NA_real_, length(x))
+  is_na <- is.na(x)
+  is0   <- !is_na & x == 0
+  pos   <- !is_na & x > 0
+  out[is0] <- 0
+  if (any(pos)) out[pos] <- ntile(x[pos], n)
+  out
+}
+
+db_proc92 <- db_proc92 %>%
+  mutate_at(vars(aus117:rp117), ~ as.numeric(.)) %>%
+  mutate_at(vars(aus117:rp117), funs(car::recode(., "999997 = NA; 999998 = NA; 999999 = NA"))) %>%
+  mutate(
+    income_personal = do.call(coalesce, across(aus117:rp117)),
+    income_decil    = ntile_zero_na(income_personal, 10)
+  )
+
+db_proc92 %>%
+  mutate(n_non_na = rowSums(!is.na(pick(aus117:rp117)))) %>%
+  count(n_non_na)
+frq(db_proc92$income_decil)
+
+```
+
+### Subjective social status
+```{r}
+frq(db_proc92$ess)
+db_proc92$ess <- set_na(db_proc92$ess, na = c(97,98,99), drop.levels = F)
+db_proc92$ess <- as.numeric(db_proc92$ess)
+frq(db_proc92$ess)
+```
+
+### Meritocratic variables
+```{r}
+frq(db_proc92$merit_effort)
+frq(db_proc92$merit_ambition)
+
+db_proc92 <- db_proc92 %>%
+  mutate(
+    across(
+      .cols = c(merit_effort, merit_ambition),
+      .fns = ~ set_na(., na = c(8,9), drop.levels = F)
+    )
+  ) # ok
+
+db_proc92$merit_effort <- sjmisc::rec(db_proc92$merit_effort,rec = "rev")
+db_proc92$merit_ambition <- sjmisc::rec(db_proc92$merit_ambition,rec = "rev")
+
+frq(db_proc92$merit_effort)
+frq(db_proc92$merit_ambition)
+```
+
+### Non-meritocratic variables
+```{r}
+frq(db_proc92$nmerit_wealthy_fam)
+frq(db_proc92$nmerit_contacts)
+frq(db_proc92$nmerit_educated_parents)
+frq(db_proc92$nmerit_political_connection)
+frq(db_proc92$nmerit_race)
+frq(db_proc92$nmerit_gender)
+
+db_proc92 <- db_proc92 %>%
+  mutate(
+    across(
+      .cols = c(nmerit_wealthy_fam, nmerit_contacts, nmerit_educated_parents,
+                nmerit_political_connection, nmerit_race, nmerit_gender),
+      .fns = ~ set_na(., na = c(8,9), drop.levels = F)
+    )
+  ) # ok
+
+db_proc92$nmerit_wealthy_fam <- sjmisc::rec(db_proc92$nmerit_wealthy_fam,rec = "rev")
+db_proc92$nmerit_contacts <- sjmisc::rec(db_proc92$nmerit_contacts,rec = "rev")
+db_proc92$nmerit_educated_parents <- sjmisc::rec(db_proc92$nmerit_educated_parents,rec = "rev")
+db_proc92$nmerit_political_connection <- sjmisc::rec(db_proc92$nmerit_political_connection,rec = "rev")
+db_proc92$nmerit_race <- sjmisc::rec(db_proc92$nmerit_race,rec = "rev")
+db_proc92$nmerit_gender <- sjmisc::rec(db_proc92$nmerit_gender,rec = "rev")
+
+frq(db_proc92$nmerit_wealthy_fam)
+frq(db_proc92$nmerit_contacts)
+frq(db_proc92$nmerit_educated_parents)
+frq(db_proc92$nmerit_political_connection)
+frq(db_proc92$nmerit_race)
+frq(db_proc92$nmerit_gender)
+
+```
+
+### Market justice healthcare
+```{r}
+# No disponible en ISSP 1992 (Social Inequality II). El ítem "the rich can buy
+# better health care than the poor" fue introducido en ISSP 1999 (Social
+# Inequality III).
+db_proc92$just_health <- NA_real_
+```
+
+### Market justice in education
+```{r}
+# No disponible en ISSP 1992, misma razón que just_health.
+db_proc92$just_educ <- NA_real_
+```
+
+### Perceived inequality
+```{r}
+frq(db_proc92$perc_inequality)
+db_proc92$perc_inequality <- set_na(db_proc92$perc_inequality, na = c(0,8,9), drop.levels = F)
+db_proc92$perc_inequality <- sjmisc::rec(db_proc92$perc_inequality,rec = "rev")
+frq(db_proc92$perc_inequality)
+```
+
+### Class
+
+```{r}
+db_proc92 <- db_proc92 %>%
+  mutate(
+    isco68 = set_na(isco68, na = c(0,9997,9998,9999), drop.levels = F),
+    isco88_conv = isco68to88(isco68),
+    isco88_cty = coalesce(
+      na_if(as.numeric(aus106), 0),
+      na_if(as.numeric(pl106), 0),
+      na_if(as.numeric(slo106), 0),
+      na_if(as.numeric(rus106), 0),
+      na_if(as.numeric(nz106), 0)
+    ),
+    isco88_4 = coalesce(isco88_conv, isco88_cty),
+    selfemp = set_na(selfemp, na = c(0,9), drop.levels = F),
+    selfemp_bin = if_else(selfemp == 1, 1, 0),
+    nemploy = set_na(nemploy, na = c(99), drop.levels = F),
+    nemploy_cty = coalesce(
+      na_if(as.numeric(aus111), 0),
+      na_if(as.numeric(d111), 0),
+      na_if(as.numeric(i111), 0),
+      na_if(as.numeric(n111), 0),
+      na_if(as.numeric(rp111), 0)
+    ),
+    nemploy_rec = coalesce(as.numeric(nemploy), nemploy_cty),
+    egp5 = isco88toEGP(isco88_4, n.employees = nemploy_rec,
+                        self.employed = selfemp_bin, n.classes = 5)
+  )
+
+frq(db_proc92$egp5)
+```
+
+## Save
+
+```{r}
+db_proc92 <- db_proc92 %>%
+  select(year, country, iso_country, sex, age, educ, educ_dic, income_decil, ess, just_health, just_educ, perc_inequality, egp5, merit_effort, merit_ambition, nmerit_wealthy_fam, nmerit_contacts, nmerit_educated_parents, nmerit_political_connection, nmerit_race, nmerit_gender, weight)
+
+save(db_proc92, file = here("input/data/proc/db_proc92.RData"))
+```
+
+
 
 # ISSP 1999
 
@@ -946,17 +1493,19 @@ save(db_proc19, file = here("input/data/proc/db_proc19.RData"))
 ```{r}
 #| warning: false
 #| message: false
-dfs_no_labels <- map(list(db_proc99, db_proc09, db_proc19), remove_all_labels)
+dfs_no_labels <- map(list(db_proc87, db_proc92, db_proc99, db_proc09, db_proc19), remove_all_labels)
 
-names(dfs_no_labels) <- c("db_proc99", "db_proc09", "db_proc19")
+names(dfs_no_labels) <- c("db_proc87", "db_proc92", "db_proc99", "db_proc09", "db_proc19")
 list2env(dfs_no_labels, envir = .GlobalEnv)
 
 db_proc <- bind_rows(
+  `1987` = db_proc87,
+  `1992` = db_proc92,
   `1999` = db_proc99,
   `2009` = db_proc09,
   `2019` = db_proc19,
   .id = "source_year"
-) %>% 
+) %>%
   select(-source_year)
 
 db_proc <- tibble::rowid_to_column(db_proc, "id_subject")
@@ -969,6 +1518,319 @@ head(db_proc)
 ```{r}
 save(db_proc, file = here("input/data/proc/issp_proc.RData"))
 ```
+
+# Cumulative data
+
+
+## Select
+
+```{r}
+
+db_cumu <- issp_cumu %>%
+  select(year, country,
+         sex = SEX,
+         age = AGE,
+         degree = DEGREE,
+         income = INCOME,
+         ess = TOPBOT,
+         merit_effort = v6,
+         nmerit_contacts = v7,
+         nmerit_race = v9,
+         nmerit_gender = v12,
+         just_health = v37,
+         just_educ = v38,
+         perc_inequality = v54,
+         isco88 = ISCO88,
+         wrksup = WRKSUP,
+         selfemp = SELFEMP,
+         weight = WEIGHT) %>%
+  janitor::clean_names()
+
+```
+
+
+
+```{r}
+na_codes_cumu <- c(-9,-8,-7,-4,-3,-1)
+```
+
+##  Recode and transform
+
+### Year
+
+```{r}
+frq(db_cumu$year)
+db_cumu$year <- as.numeric(db_cumu$year)
+```
+
+### Country
+
+```{r}
+db_cumu$country <- as.numeric(db_cumu$country)
+db_cumu$country <- countrycode::countrycode(db_cumu$country,
+                                             origin = "iso3n",
+                                             destination = "country.name")
+db_cumu$iso_country <- countrycode::countrycode(db_cumu$country,
+                                                 origin = "country.name",
+                                                 destination = "iso3c")
+frq(db_cumu$country); frq(db_cumu$iso_country)
+
+```
+
+### Sex
+```{r}
+frq(db_cumu$sex)
+db_cumu$sex <- set_na(db_cumu$sex, na = na_codes_cumu, drop.levels = F)
+db_cumu <- db_cumu %>%
+  mutate(sex = if_else(sex == 1, 'Male', 'Female'),
+         sex = factor(sex, levels = c("Male", "Female")))
+frq(db_cumu$sex)
+```
+
+### Age
+```{r}
+summary(db_cumu$age)
+db_cumu$age <- set_na(db_cumu$age, na = na_codes_cumu, drop.levels = F)
+db_cumu$age <- as.numeric(db_cumu$age)
+```
+
+### Education
+```{r}
+frq(db_cumu$degree)
+db_cumu$degree <- set_na(db_cumu$degree, na = na_codes_cumu, drop.levels = F)
+db_cumu <- db_cumu %>%
+  mutate(educ = case_when(degree == 0 ~ "Incomplete primary or less",
+                            degree == 1 ~ "Complete primary",
+                            degree == 2 ~ "Incomplete secondary",
+                            degree == 3 ~ "Complete secondary",
+                            degree == 4 ~ "Incomplete university",
+                            degree == 5 ~ "Complete university",
+                            TRUE ~ NA_character_),
+           educ = factor(educ,
+                           levels = c("Incomplete primary or less",
+                           "Complete primary",
+                           "Incomplete secondary",
+                           "Complete secondary",
+                           "Incomplete university",
+                           "Complete university")))
+
+db_cumu <- db_cumu %>%
+  mutate(educ_dic = case_when(degree %in% c(0:4) ~ 'Less than universitary',
+                              degree == 5 ~ 'Universitary',
+                              TRUE ~ NA_character_),
+         educ_dic = factor(educ_dic, levels = c("Universitary", "Less than universitary")))
+frq(db_cumu$educ)
+frq(db_cumu$educ_dic)
+```
+
+### Income
+```{r}
+frq(db_cumu$income)
+db_cumu$income <- set_na(db_cumu$income, na = na_codes_cumu, drop.levels = F)
+frq(db_cumu$income)
+```
+
+
+### Subjective social status
+```{r}
+frq(db_cumu$ess)
+db_cumu$ess <- set_na(db_cumu$ess, na = na_codes_cumu, drop.levels = F)
+db_cumu$ess <- as.numeric(db_cumu$ess)
+frq(db_cumu$ess)
+```
+
+### Meritocratic variables
+```{r}
+frq(db_cumu$merit_effort)
+
+db_cumu <- db_cumu %>%
+  mutate(
+    across(
+      .cols = c(merit_effort),
+      .fns = ~ set_na(., na = na_codes_cumu, drop.levels = F)
+    )
+  ) # ok
+
+db_cumu$merit_effort <- sjmisc::rec(db_cumu$merit_effort,rec = "rev")
+
+frq(db_cumu$merit_effort)
+```
+
+### Non-meritocratic variables
+```{r}
+frq(db_cumu$nmerit_contacts)
+frq(db_cumu$nmerit_race)
+frq(db_cumu$nmerit_gender)
+
+db_cumu <- db_cumu %>%
+  mutate(
+    across(
+      .cols = c(nmerit_contacts, nmerit_race, nmerit_gender),
+      .fns = ~ set_na(., na = na_codes_cumu, drop.levels = F)
+    )
+  ) # ok
+
+db_cumu$nmerit_contacts <- sjmisc::rec(db_cumu$nmerit_contacts,rec = "rev")
+db_cumu$nmerit_race <- sjmisc::rec(db_cumu$nmerit_race,rec = "rev")
+db_cumu$nmerit_gender <- sjmisc::rec(db_cumu$nmerit_gender,rec = "rev")
+
+frq(db_cumu$nmerit_contacts)
+frq(db_cumu$nmerit_race)
+frq(db_cumu$nmerit_gender)
+
+```
+
+### Market justice healthcare
+```{r}
+frq(db_cumu$just_health)
+db_cumu$just_health <- set_na(db_cumu$just_health, na = na_codes_cumu, drop.levels = F)
+db_cumu$just_health <- sjmisc::rec(db_cumu$just_health,rec = "rev")
+frq(db_cumu$just_health)
+```
+
+### Market justice in education
+```{r}
+frq(db_cumu$just_educ)
+db_cumu$just_educ <- set_na(db_cumu$just_educ, na = na_codes_cumu, drop.levels = F)
+db_cumu$just_educ <- sjmisc::rec(db_cumu$just_educ,rec = "rev")
+frq(db_cumu$just_educ)
+```
+
+### Perceived inequality
+```{r}
+frq(db_cumu$perc_inequality)
+db_cumu$perc_inequality <- set_na(db_cumu$perc_inequality, na = na_codes_cumu, drop.levels = F)
+db_cumu$perc_inequality <- sjmisc::rec(db_cumu$perc_inequality,rec = "rev")
+frq(db_cumu$perc_inequality)
+```
+
+### Class
+
+```{r}
+db_cumu <- db_cumu %>%
+  mutate(
+    isco88 = set_na(isco88, na = na_codes_cumu, drop.levels = F),
+    wrksup = set_na(wrksup, na = na_codes_cumu, drop.levels = F),
+    selfemp = set_na(selfemp, na = na_codes_cumu, drop.levels = F),
+    selfemp_bin = if_else(selfemp == 1, 1, 0),
+    nemploy = NA_real_, # no existe una variable de número de empleados armonizada en el cumulativo
+    egp5 = isco88toEGP(isco88, n.employees = nemploy,
+                        self.employed = selfemp_bin, n.classes = 5)
+  )
+
+frq(db_cumu$egp5)
+```
+
+## Save
+
+```{r}
+db_cumu <- db_cumu %>%
+  select(year, country, iso_country, sex, age, educ, educ_dic, income, ess, just_health, just_educ, perc_inequality, egp5, merit_effort, nmerit_contacts, nmerit_race, nmerit_gender, isco88, wrksup, nemploy, weight)
+
+save(db_cumu, file = here("input/data/proc/db_cumu.RData"))
+```
+
+# Assessment of the availability of variables and countries
+
+## Variables available per wave
+
+```{r}
+#| label: tbl-vars-cumu
+#| tbl-cap: "Missing data by variable and wave (% NA)"
+#| tbl-cap-location: top
+#| results: asis
+#| warning: false
+
+tab_avail_cumu <- db_cumu %>%
+  group_by(year) %>%
+  summarise(
+    n = n(),
+    just_health = mean(is.na(just_health)) * 100,
+    just_educ = mean(is.na(just_educ)) * 100,
+    perc_inequality = mean(is.na(perc_inequality)) * 100,
+    merit_effort = mean(is.na(merit_effort)) * 100,
+    ess = mean(is.na(ess)) * 100,
+    isco88 = mean(is.na(isco88)) * 100,
+    wrksup = mean(is.na(wrksup)) * 100,
+    .groups = "drop"
+  ) %>%
+  mutate(across(-c(year, n), ~ round(., 1)),
+         year = factor(year))
+
+num_cols_cumu <- setdiff(names(tab_avail_cumu), c("year", "n"))
+
+tab_avail_cumu_fmt <- tab_avail_cumu %>%
+  mutate(across(
+    all_of(num_cols_cumu),
+    ~ ifelse(
+      is.na(.x), "",
+      ifelse(
+        .x == 100,
+        kableExtra::cell_spec(sprintf("%.1f", .x), "html", color = "white", background = "darkred"),
+        sprintf("%.1f", .x)
+      )
+    )
+  ))
+
+kableExtra::kable(tab_avail_cumu_fmt,
+                  format = "html",
+                  booktabs = T,
+                  escape = F,
+                  align = 'c',
+                  format.args = list(big.mark = ",")) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive", full_width = FALSE))
+
+```
+
+
+## Countries per wave
+
+
+```{r}
+#| label: tbl-country-wave-avail
+#| tbl-cap: "Available countries by wave"
+#| tbl-cap-location: top
+#| results: asis
+#| warning: false
+
+tab_country_wave <- db_proc %>%
+  distinct(country, year) %>%
+  mutate(available = 1L) %>%
+  tidyr::pivot_wider(names_from = year, values_from = available, values_fill = 0L) %>%
+  arrange(country)
+
+wave_cols <- setdiff(names(tab_country_wave), "country")
+tab_country_wave <- tab_country_wave %>%
+  select(country, all_of(sort(wave_cols))) %>%
+  mutate(Total = rowSums(across(all_of(wave_cols)))) %>%
+  janitor::adorn_totals("row")
+
+tab_country_wave_fmt <- tab_country_wave %>%
+  mutate(across(
+    all_of(wave_cols),
+    ~ ifelse(
+      .x == 1,
+      kableExtra::cell_spec(.x, "html", color = "white", background = "darkred"),
+      as.character(.x)
+    )
+  ))
+
+kableExtra::kable(tab_country_wave_fmt,
+                  format = "html",
+                  booktabs = T,
+                  escape = F,
+                  align = 'c') %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive", full_width = FALSE))
+
+```
+
+## Suggestions for Analysis Criteria
+
+- Due to the absence of market justice variables in the 1987 and 1992 waves, we have retained the **last 3 ISSP waves (1999, 2009, 2019)**
+
+- By using the last 3 waves, we have **96 country-waves** in the total sample
+
+- If we apply the selection criterion of including only countries that appear in **at least two** versions of the survey, the number of country-waves decreases to **86** (Argentina, Belgium, China, Estonia, Ireland, South Korea, Suriname, Thailand, Turkey, and Ukraine are excluded)
 
 # Descriptives
 
@@ -1055,6 +1917,8 @@ kableExtra::kable(tab_n,
   kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive", full_width = FALSE))
 
 ```
+
+**N for 86 valid country-waves: 120.403**
 
 ## Market justice
 
