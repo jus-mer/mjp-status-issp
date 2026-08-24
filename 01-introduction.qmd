@@ -1,9 +1,22 @@
 ---
-bibliography: "input/bib/merit-edjust.bib"
+bibliography: "input/bib/jusmer.bib"
 csl: "input/bib/apa6.csl"
 ---
 
-# Introduction
+# Introduction (JC)
+
+Market justice and political justice are two competing paradigms for understanding the distribution of public goods in society (@lane_market_1986). Market justice emphasizes individual responsibility, personal choice, and the role of market forces in determining access to services such as healthcare and education. In contrast, political justice focuses on the role of government and public policy in ensuring that these services are distributed fairly across all members of society, regardless of their socioeconomic status. The introduction of markets into the provision of public goods has been a topic of debate for decades, mostly from a political-economic perspective. Although popular support for redistribution (i.e. political justice in Lane's terms) has been widely studied, the extent to which market justice policies are supported by the public remains an underexplored area of research (@lindh_public_2015), let alone how this support varies across time and countries.  
+
+The lack of research on the public's support for market justice policies is particularly relevant in the context of healthcare and education (@immergut_it_2020) . On the one side, healthcare and education are often considered fundamental rights that should be accessible to all individuals, regardless of their ability to pay. On the other side, market justice policies may lead to disparities in access to these services, potentially exacerbating existing inequalities. Therefore, understanding public opinion on these issues is crucial for policymakers and stakeholders seeking to design effective and equitable policies.
+
+The present paper aims to fill this gap by examining the extent to which market justice policies in healthcare and education are supported by the public, and how these attitudes vary across time and countries. For this, we will analyze data from the ISSP social inequality module, which provides a unique opportunity to explore public opinion on these issues across different contexts. By investigating the factors that influence support for market justice policies, we hope to contribute to a better understanding of the dynamics between market forces and public goods provision, and to inform the ongoing debate on the role of markets in shaping social outcomes.
+
+There are two main areas of inquiry that guide this study. First, we address the role of meritocratic perceptions in shaping public support for market justice policies. Meritocracy, the belief that individuals should be rewarded based on their abilities and efforts, may influence how people perceive the fairness of market-based approaches to healthcare and education. We argue that individuals who endorse meritocratic values are more likely to support market justice policies, and that increases in meritocratic perceptions over time may strengthen this relationship. Moreover, we will explore the mediating role of meritocratic perceptions in the relationship between socioeconomic status and support for market justice policies, arguing that individuals with higher socioeconomic status may be more likely to endorse meritocratic values, which in turn may lead to greater support for market justice policies. Secondly, we investigate the impact of contextual factors related to the provision of public goods on public support for market justice policies. Specifically, we will examine how the level of public spending on healthcare and education, as well as the overall quality and accessibility of these services, may shape individuals' attitudes towards market-based approaches. By analyzing these factors, we aim to provide a comprehensive understanding of the determinants of public support for market justice policies in healthcare and education.
+
+
+
+
+
 
 
 

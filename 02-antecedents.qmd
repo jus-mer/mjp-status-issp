@@ -1,0 +1,41 @@
+---
+bibliography: "input/bib/jusmer.bib"
+csl: "input/bib/apa6.csl"
+---
+
+# Market justice preferences (TU)
+
+## Definition and measurement
+
+Market justice preferences refer to the belief that access to goods and services should be determined by market mechanisms, such as payment capacity, rather than by social or governmental intervention (@lindh_public_2015). This concept is often operationalized through survey items that assess individuals' agreement with statements regarding the fairness of market-based distribution of resources, such as healthcare, education, and pensions.
+
+- uni-variate evidence
+
+## Associated structural individual factors
+
+The paradox of inequality holds that citizens in more unequal societies endorse meritocracy more strongly, legitimizing disparities [@mijs_paradox_2021], but this is contested: European data show rising inequality leads people to disagree more strongly with meritocratic principles [@bartram_does_2023], and a reanalysis of 35 countries finds no consistent upward trend in meritocratic beliefs [@wiesner_effort_2026]. South Africa presents a further anomaly where stronger meritocratic beliefs correlate positively with redistribution preferences [@kirsten_meritocracy_2025].
+
+# Meritocracy and market justice (JC)
+
+Meritocracy refers to a social order where individuals should be rewarded based on their abilities and efforts, rather than their social background or other external factors (@young_rise_1958; @mijs_paradox_2021). Although meritocracy is often associated with fairness and equal opportunity, it can also serve to justify existing inequalities by framing them as the result of individual effort and talent (@sandel_tyranny_2020). As a result, meritocratic beliefs may influence individuals' support for market justice policies, as those who endorse meritocracy may be more likely to view market-based distribution of resources as fair and justified.
+
+Research on meritocratic beliefs usually distinguishes between two dimensions: effort-based meritocracy, which emphasizes the role of hard work and diligence in achieving success, and talent-based meritocracy, which focuses on innate abilities and natural talent as determinants of success (@castillo_justification_2026). These dimensions may have different implications for support for market justice policies. Effort-based meritocratic perceptions have been associated to higher support for market-based access to healthcare, education, and pensions at both between-person and within-person levels over time [@castillo_justification_2026; @castillo_perceptions_2025]. Among eighth-grade students, those who perceive that effort is rewarded are more willing to agree that richer individuals deserve better healthcare, education, and pensions [@castillo_socialization_2024]. Taking the role of effort-based meritocracy, our first hypothesis is that:
+
+$H_2$: Individuals who perceive that effort is rewarded are more likely to support market justice policies. 
+
+[-> meritocracy as a mediator?] Meritocratic beliefs may also serve as a mediator in the relationship between socioeconomic status and support for market justice policies.  High socioeconomic status individuals has been linked to larger support for market justice policies, based on a self-interest rationale that they are more likely to benefit from market-based distribution of resources. Higher-income individuals hold stronger meritocratic beliefs because meritocracy frames their economic position as personally earned, consistent with self-interest theory [@kunovich_systems_2007; @almas_attitudes_2024]. Successful people prefer to remain ignorant about structural reasons for success, reinforcing a self-serving "meritocratic illusion" [@fehr_misperceiving_2025]. Subjective upward mobility strengthens meritocratic beliefs, while downward mobility strengthens structuralist views without weakening meritocracy beliefs, suggesting the meritocratic narrative is more easily strengthened than weakened [@mijs_belief_2022]. [@castillo_perceptions_2025]. In this sense, it might be that 
+
+However, this relationship may be partially explained by the endorsement of meritocratic beliefs, as individuals with higher socioeconomic status may be more likely to endorse meritocracy, which in turn may lead to greater support for market justice policies. This suggests that meritocratic beliefs may play a crucial role in shaping public opinion on market justice policies, leading to our second hypothesis:
+
+$H_3$: The relationship between socioeconomic status and support for market justice policies is mediated by meritocratic beliefs.
+
+
+
+
+
+
+# Contextual factors (JC)
+
+-> cross level meritocracy effects?
+
+
