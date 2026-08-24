@@ -1,5 +1,5 @@
 ---
-title: "MJP Education ISSP"
+title: "SPQ special issue market justice and status"
 format:
   html: 
     code-fold: true
@@ -31,34 +31,14 @@ author:
     email: juancastillov@uchile.cl
     affiliations:
       - ref: 1
-      - ref: 2
-      - ref: 3
-  - name: Andreas Laffert
-    orcid: 0000-0002-9008-2454
-    email: alaffertt@estudiante.uc.cl 
-    affiliations:
-      - ref: 4
-  - name: Kevin Carrasco
-    orcid: 0000-0002-9348-8361
-    email: kevin.carrasco@ug.uchile.cl
-    affiliations:
-      - ref: 2
-  - name: Julio Iturra-Sanhueza
+  - name: Tomás Urzúa
     orcid: 0000-0003-1993-3479
-    email: julioiturrasanhueza@gmail.com 
+    email: tomas.urzua@uchile.cl
     affiliations:
-      - ref: 5     
+      - ref: 1   
 affiliations: 
   - id: 1
     name: Departamento de Sociología, Universidad de Chile
-  - id: 2
-    name: Centro de estudios del conflicto y cohesión social (COES)
-  - id: 3
-    name: Núcleo milenio de desigualdades y oportunidades digitales (NUDOS)
-  - id: 4
-    name: Instituto de Sociología, Pontificia Universidad Católica de Chile
-  - id: 5
-    name: International Graduate School of Social Sciencies (BIGSSS), University of Bremen, Germany
 citeproc: true
 abstract: | 
   
