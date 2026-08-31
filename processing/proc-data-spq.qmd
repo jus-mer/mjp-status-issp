@@ -3,7 +3,7 @@ title: "Data preparation"
 subtitle: "Market justice preferences with ISSP (1987-2019)"
 author: "Tomás Urzúa"
 date: today
-lang: es
+lang: en
 fontsize: 12pt
 format:
   html:
@@ -77,6 +77,7 @@ pacman::p_load(tidyverse,
 
 
 library(occupar)
+library(DIGCLASS)
 options(scipen=999)
 rm(list = ls())
 ```
@@ -899,11 +900,79 @@ db_proc99 <- db_proc99 %>%
 frq(db_proc99$egp5)
 ```
 
+```{r}
+#| label: class-digclass-1999
+
+db_proc99 <- db_proc99 %>%
+  mutate(
+    isco88_chr = sprintf("%04d", as.numeric(isco88_4)),
+    wrksup = set_na(wrksup, na = c(0, 7, 8, 9), drop.levels = F),
+    wrksup_bin = if_else(wrksup == 1, 1, 0),
+    # Ver nota sobre el bug de indexacion de DIGCLASS::isco88_to_egp() en el
+    # chunk "egp schema" (seccion Cumulative data): para independientes se usa
+    # 1 en vez de 0 cuando no se conocen empleados, para no caer en la columna
+    # equivocada de la tabla de equivalencias.
+    n_employees_egp = case_when(
+      selfemp_bin == 1 & (is.na(nemploy_rec) | nemploy_rec == 0) ~ 1,
+      selfemp_bin == 1 ~ nemploy_rec,
+      TRUE ~ 0
+    ),
+    n_employees_esec = if_else(selfemp_bin == 1, coalesce(nemploy_rec, 0), 0),
+    egp5_dc_code = DIGCLASS::isco88_to_egp(
+      isco88_chr,
+      self_employed = selfemp_bin,
+      n_employees = n_employees_egp,
+      n_classes = 5,
+      label = FALSE
+    ),
+    egp5_digclass = factor(
+      egp5_dc_code,
+      levels = as.character(1:5),
+      labels = c("White-collar (I-III)",
+                 "Petty bourgeoisie (IV.a-b)",
+                 "Farm workers (IV.c+VII.b)",
+                 "Skilled workers (V-VI)",
+                 "Non-skilled workers (VII.a)")
+    ),
+    isco88com = DIGCLASS::isco88_to_isco88com(isco88_chr),
+    isco88com_3 = DIGCLASS::isco88_swap(isco88com, from = 4, to = 3),
+    esec9_dc = DIGCLASS::isco88com_to_esec(
+      isco88com_3,
+      is_supervisor = wrksup_bin,
+      self_employed = selfemp_bin,
+      n_employees = n_employees_esec,
+      full_method = TRUE
+    ),
+    # Colapso oficial ESeC-9 -> ESeC-5, ver chunk "esec schema" (seccion
+    # Cumulative data) para la referencia (Harrison & Rose 2006, ESeC User
+    # Guide, secciones 3.3-3.4).
+    esec5_digclass = case_when(
+      esec9_dc %in% c("1", "2") ~ "1",
+      esec9_dc %in% c("3", "6") ~ "2",
+      esec9_dc %in% c("4", "5") ~ "3",
+      esec9_dc == "7"           ~ "4",
+      esec9_dc %in% c("8", "9") ~ "5"
+    ),
+    esec5_digclass = factor(
+      esec5_digclass,
+      levels = as.character(1:5),
+      labels = c("Salariat",
+                 "Intermediate employees",
+                 "Small employers and self-employed",
+                 "Lower services, sales and clerical",
+                 "Lower technical and routine")
+    )
+  )
+
+frq(db_proc99$egp5_digclass)
+frq(db_proc99$esec5_digclass)
+```
+
 ## Save
 
 ```{r}
-db_proc99 <- db_proc99 %>% 
-  select(year, country, iso_country, sex, age, educ, educ_dic, income_decil, ess, just_health, just_educ, perc_inequality, egp5,  merit_effort, merit_talent, nmerit_wealthy_fam, nmerit_contacts, weight)
+db_proc99 <- db_proc99 %>%
+  select(year, country, iso_country, sex, age, educ, educ_dic, income_decil, ess, just_health, just_educ, perc_inequality, egp5, egp5_digclass, esec5_digclass, merit_effort, merit_talent, nmerit_wealthy_fam, nmerit_contacts, weight)
 
 save(db_proc99, file = here("input/data/proc/db_proc99.RData"))
 ```
@@ -1194,13 +1263,81 @@ db_proc09 <- db_proc09 %>%
 frq(db_proc09$egp5)
 ```
 
+```{r}
+#| label: class-digclass-2009
+
+db_proc09 <- db_proc09 %>%
+  mutate(
+    isco88_chr = sprintf("%04d", as.numeric(isco88)),
+    wrksup = set_na(wrksup, na = c(0, 7, 8, 9), drop.levels = F),
+    wrksup_bin = if_else(wrksup == 1, 1, 0),
+    # Ver nota sobre el bug de indexacion de DIGCLASS::isco88_to_egp() en el
+    # chunk "egp schema" (seccion Cumulative data): para independientes se usa
+    # 1 en vez de 0 cuando no se conocen empleados, para no caer en la columna
+    # equivocada de la tabla de equivalencias.
+    n_employees_egp = case_when(
+      selfemp_bin == 1 & (is.na(nemploy_rec) | nemploy_rec == 0) ~ 1,
+      selfemp_bin == 1 ~ nemploy_rec,
+      TRUE ~ 0
+    ),
+    n_employees_esec = if_else(selfemp_bin == 1, coalesce(nemploy_rec, 0), 0),
+    egp5_dc_code = DIGCLASS::isco88_to_egp(
+      isco88_chr,
+      self_employed = selfemp_bin,
+      n_employees = n_employees_egp,
+      n_classes = 5,
+      label = FALSE
+    ),
+    egp5_digclass = factor(
+      egp5_dc_code,
+      levels = as.character(1:5),
+      labels = c("White-collar (I-III)",
+                 "Petty bourgeoisie (IV.a-b)",
+                 "Farm workers (IV.c+VII.b)",
+                 "Skilled workers (V-VI)",
+                 "Non-skilled workers (VII.a)")
+    ),
+    isco88com = DIGCLASS::isco88_to_isco88com(isco88_chr),
+    isco88com_3 = DIGCLASS::isco88_swap(isco88com, from = 4, to = 3),
+    esec9_dc = DIGCLASS::isco88com_to_esec(
+      isco88com_3,
+      is_supervisor = wrksup_bin,
+      self_employed = selfemp_bin,
+      n_employees = n_employees_esec,
+      full_method = TRUE
+    ),
+    # Colapso oficial ESeC-9 -> ESeC-5, ver chunk "esec schema" (seccion
+    # Cumulative data) para la referencia (Harrison & Rose 2006, ESeC User
+    # Guide, secciones 3.3-3.4).
+    esec5_digclass = case_when(
+      esec9_dc %in% c("1", "2") ~ "1",
+      esec9_dc %in% c("3", "6") ~ "2",
+      esec9_dc %in% c("4", "5") ~ "3",
+      esec9_dc == "7"           ~ "4",
+      esec9_dc %in% c("8", "9") ~ "5"
+    ),
+    esec5_digclass = factor(
+      esec5_digclass,
+      levels = as.character(1:5),
+      labels = c("Salariat",
+                 "Intermediate employees",
+                 "Small employers and self-employed",
+                 "Lower services, sales and clerical",
+                 "Lower technical and routine")
+    )
+  )
+
+frq(db_proc09$egp5_digclass)
+frq(db_proc09$esec5_digclass)
+```
+
 ## Save
 
 ```{r}
 #| collapse: false
 
-db_proc09 <- db_proc09 %>% 
-  select(year, country, iso_country, sex, age, educ, educ_dic, income_decil, ess, just_health, just_educ, perc_inequality, egp5, merit_effort, merit_ambition, nmerit_wealthy_fam, nmerit_contacts, nmerit_educated_parents, nmerit_political_connection, nmerit_race, nmerit_gender, weight)
+db_proc09 <- db_proc09 %>%
+  select(year, country, iso_country, sex, age, educ, educ_dic, income_decil, ess, just_health, just_educ, perc_inequality, egp5, egp5_digclass, esec5_digclass, merit_effort, merit_ambition, nmerit_wealthy_fam, nmerit_contacts, nmerit_educated_parents, nmerit_political_connection, nmerit_race, nmerit_gender, weight)
 ```
 
 
@@ -1474,13 +1611,82 @@ db_proc19 <- db_proc19 %>%
 frq(db_proc19$egp5)
 ```
 
+```{r}
+#| label: class-digclass-2019
+
+db_proc19 <- db_proc19 %>%
+  mutate(
+    # ISSP 2019 codifica ocupacion con ISCO08 (no ISCO88); DIGCLASS no tiene
+    # isco08_to_egp(), por lo que se convierte a ISCO88 con la propia funcion
+    # de DIGCLASS (isco08_to_isco88(), distinta de occupar::isco08to88() usada
+    # arriba) antes de aplicar el esquema EGP. Para ESeC, DIGCLASS traduce
+    # ISCO08 directamente (isco08_to_esec()), sin pasar por ISCO88COM.
+    isco08_chr = sprintf("%04d", as.numeric(isco08)),
+    isco88_dc_chr = DIGCLASS::isco08_to_isco88(isco08_chr),
+    wrksup = set_na(wrksup, na = c(-9, -4), drop.levels = F),
+    wrksup_bin = if_else(wrksup == 1, 1, 0),
+    # ISSP 2019 no releva el N de empleados de independientes: EMPREL solo
+    # distingue "sin empleados" (2) de "con empleados" (3,4). Ver nota sobre
+    # el bug de indexacion de DIGCLASS::isco88_to_egp() en el chunk
+    # "egp schema" (seccion Cumulative data): para EGP se usa 1 (no 0) en
+    # ambos casos de independientes para no caer en la columna equivocada.
+    n_employees_egp = if_else(selfemp_bin == 1, 1, 0),
+    n_employees_esec = nemploy_rec, # aqui si corresponde 0/1 tal cual (ver chunk "esec schema")
+    egp5_dc_code = DIGCLASS::isco88_to_egp(
+      isco88_dc_chr,
+      self_employed = selfemp_bin,
+      n_employees = n_employees_egp,
+      n_classes = 5,
+      label = FALSE
+    ),
+    egp5_digclass = factor(
+      egp5_dc_code,
+      levels = as.character(1:5),
+      labels = c("White-collar (I-III)",
+                 "Petty bourgeoisie (IV.a-b)",
+                 "Farm workers (IV.c+VII.b)",
+                 "Skilled workers (V-VI)",
+                 "Non-skilled workers (VII.a)")
+    ),
+    isco08_3 = DIGCLASS::isco08_swap(isco08_chr, from = 4, to = 3),
+    esec9_dc = DIGCLASS::isco08_to_esec(
+      isco08_3,
+      is_supervisor = wrksup_bin,
+      self_employed = selfemp_bin,
+      n_employees = n_employees_esec
+    ),
+    # Colapso oficial ESeC-9 -> ESeC-5, ver chunk "esec schema" (seccion
+    # Cumulative data) para la referencia (Harrison & Rose 2006, ESeC User
+    # Guide, secciones 3.3-3.4).
+    esec5_digclass = case_when(
+      esec9_dc %in% c("1", "2") ~ "1",
+      esec9_dc %in% c("3", "6") ~ "2",
+      esec9_dc %in% c("4", "5") ~ "3",
+      esec9_dc == "7"           ~ "4",
+      esec9_dc %in% c("8", "9") ~ "5"
+    ),
+    esec5_digclass = factor(
+      esec5_digclass,
+      levels = as.character(1:5),
+      labels = c("Salariat",
+                 "Intermediate employees",
+                 "Small employers and self-employed",
+                 "Lower services, sales and clerical",
+                 "Lower technical and routine")
+    )
+  )
+
+frq(db_proc19$egp5_digclass)
+frq(db_proc19$esec5_digclass)
+```
+
 ## Save
 
 ```{r}
 #| collapse: false
 
 db_proc19 <- db_proc19 %>%
-  select(year, country, iso_country, sex, age, educ, educ_dic, income_decil, ess, just_health, just_educ, perc_inequality, merit_effort, nmerit_wealthy_fam, nmerit_contacts, nmerit_educated_parents, nmerit_political_connection, nmerit_race, nmerit_gender, egp5, weight)
+  select(year, country, iso_country, sex, age, educ, educ_dic, income_decil, ess, just_health, just_educ, perc_inequality, merit_effort, nmerit_wealthy_fam, nmerit_contacts, nmerit_educated_parents, nmerit_political_connection, nmerit_race, nmerit_gender, egp5, egp5_digclass, esec5_digclass, weight)
 
 
 save(db_proc19, file = here("input/data/proc/db_proc19.RData"))
@@ -1516,6 +1722,13 @@ head(db_proc)
 ## Save
 
 ```{r}
+countries_exclude <- c("Argentina", "Belgium", "China", "Estonia", "Ireland",
+                        "South Korea", "Suriname", "Thailand", "Turkey", "Ukraine", "Canada")
+
+
+db_proc <- db_proc %>%
+  filter(!country %in% countries_exclude)
+
 save(db_proc, file = here("input/data/proc/issp_proc.RData"))
 ```
 
@@ -1725,12 +1938,14 @@ frq(db_cumu$egp5)
 
 ```{r}
 db_cumu <- db_cumu %>%
-  select(year, country, iso_country, sex, age, educ, educ_dic, income, ess, just_health, just_educ, perc_inequality, egp5, merit_effort, nmerit_contacts, nmerit_race, nmerit_gender, isco88, wrksup, nemploy, weight)
+  select(year, country, iso_country, sex, age, educ, educ_dic, income, ess, just_health, just_educ, perc_inequality, egp5, merit_effort, nmerit_contacts, nmerit_race, nmerit_gender, isco88, wrksup, selfemp_bin, nemploy, weight)
 
 save(db_cumu, file = here("input/data/proc/db_cumu.RData"))
+
+load(here("input/data/proc/db_cumu.RData"))
 ```
 
-# Assessment of the availability of variables and countries
+# Criteria for data selection
 
 ## Variables available per wave
 
@@ -1824,72 +2039,30 @@ kableExtra::kable(tab_country_wave_fmt,
 
 ```
 
-## Suggestions for Analysis Criteria
+## Suggestions for analysis criteria
 
 - Due to the absence of market justice variables in the 1987 and 1992 waves, we have retained the **last 3 ISSP waves (1999, 2009, 2019)**
 
 - By using the last 3 waves, we have **96 country-waves** in the total sample
 
-- If we apply the selection criterion of including only countries that appear in **at least two** versions of the survey, the number of country-waves decreases to **86** (Argentina, Belgium, China, Estonia, Ireland, South Korea, Suriname, Thailand, Turkey, and Ukraine are excluded)
-
-# Descriptives
-
-## Main variables per country and wave
+- If we apply the selection criterion of including only countries that appear in **at least two** versions of the survey, the number of country-waves decreases to **85** (Argentina, Belgium, Canada, China, Estonia, Ireland, South Korea, Suriname, Thailand, Turkey, and Ukraine are excluded)
 
 ```{r}
-#| label: tbl-vars
-#| tbl-cap: "Missing values percent per variable by country-wave"
-#| tbl-cap-location: top
-#| results: asis
-#| echo: false
-#| warning: false
+#| label: clean-countries
 
-db_proc$wave <- as.factor(db_proc$year)
-db_proc$country_wave <- do.call(paste, c(db_proc[c("iso_country", "wave")], sep = "_"))
+countries_exclude <- c("Argentina", "Belgium", "China", "Estonia", "Ireland",
+                        "South Korea", "Suriname", "Thailand", "Turkey", "Ukraine", "Canada")
 
-tab <- db_proc %>%
-  select(country_wave, just_health,  just_educ, ess, egp5, starts_with("merit"), starts_with("nmerit")) %>%
-  group_by(country_wave) %>%
-  summarise(
-    across(
-      everything(),                     
-      list(
-        n_complete = ~sum(!is.na(.)),
-        n_na       = ~sum(is.na(.)),
-        n_total    = ~length(.),
-        pct_na     = ~mean(is.na(.)) * 100
-      ),
-      .names = "{.col}_{.fn}"
-    ),
-    .groups = "drop"
-  ) %>% 
-  select(country_wave, ends_with("pct_na")) %>% 
-  mutate_if(is.numeric, ~ round(.,2)) %>% 
-  rename_with(~str_remove(., "_pct_na"))
+years_exclude <- c("1987", "1992")
 
-num_cols <- setdiff(names(tab), "country_wave")
-
-tab_fmt <- tab %>%
-  mutate(across(
-    all_of(num_cols),
-    ~ ifelse(
-      is.na(.x), "",  # opcional: celdas NA como vacío en la salida
-      ifelse(
-        .x == 100,
-        kableExtra::cell_spec(sprintf("%.2f", .x), "html", color = "white", background = "darkred"),
-        sprintf("%.2f", .x)
-      )
-    )
-  ))
-
-kableExtra::kable(tab_fmt,
-                  format = "html",
-                    booktabs= T, 
-                    escape = F, 
-                    align = 'c') %>%
-  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive", full_width = FALSE))
-
+db_cumu <- db_cumu %>%
+  filter(!country %in% countries_exclude) %>%
+  filter(!year %in% years_exclude)
 ```
+
+
+
+# Descriptives
 
 ## N by country and wave
 
@@ -1901,7 +2074,7 @@ kableExtra::kable(tab_fmt,
 #| echo: false
 #| warning: false
 
-tab_n <- db_proc %>%
+tab_n <- db_cumu %>%
   count(country, year, name = "n") %>%
   tidyr::pivot_wider(names_from = year, values_from = n, values_fill = 0) %>%
   select(country, `1999`, `2009`, `2019`) %>%
@@ -1918,12 +2091,320 @@ kableExtra::kable(tab_n,
 
 ```
 
-**N for 86 valid country-waves: 120.403**
+## Class processing (cumulative)
+
+```{r}
+#| label: egp schema
+
+
+db_cumu <- db_cumu %>%
+  mutate(
+    # ISCO88 4 digitos como string; en este cumulativo el unico codigo con
+    # menos de 4 digitos es 110 ("fuerzas armadas"), que pierde el cero inicial
+    # al guardarse como numerico (DIGCLASS lo reconoce como "0110")
+    isco88_chr = sprintf("%04d", isco88),
+    # El cumulativo ISSP no tiene una variable armonizada de N empleados. No se
+    # puede usar 0 para todos los casos: DIGCLASS::isco88_to_egp() tiene un bug
+    # de indexacion de columnas (case_when de self_employed==1 & n_employees==0
+    # apunta a la columna "EGP(0,10+)" en vez de "EGP(1,0)"), por lo que un
+    # trabajador independiente sin empleados queda mal clasificado segun su
+    # ocupacion como si fuera asalariado de una empresa grande (verificado con
+    # los datos de ejemplo del propio paquete: ess$self_employed==1 &
+    # ess$emplno==0 nunca cae en la clase "Petty bourgeoisie"). Usar 1 en vez
+    # de 0 para independientes esquiva el bug y cae en la columna correcta
+    # "EGP(1,0)".
+    n_employees_egp = if_else(selfemp_bin == 1, 1, 0),
+    egp5_code = DIGCLASS::isco88_to_egp(
+      isco88_chr,
+      self_employed = selfemp_bin,
+      n_employees = n_employees_egp,
+      n_classes = 5,
+      label = FALSE
+    ),
+    egp5_digclass = factor(
+      egp5_code,
+      levels = as.character(1:5),
+      labels = c("White-collar (I-III)",
+                 "Petty bourgeoisie (IV.a-b)",
+                 "Farm workers (IV.c+VII.b)",
+                 "Skilled workers (V-VI)",
+                 "Non-skilled workers (VII.a)")
+    )
+  )
+
+frq(db_cumu$egp5_digclass)
+```
+
+```{r}
+#| label: egp schema - 3 cat
+
+db_cumu <- db_cumu %>%
+  mutate(
+    # Mismo isco88_chr / n_employees_egp calculados en el chunk "egp schema"
+    # (misma logica y mismo workaround del bug de DIGCLASS::isco88_to_egp()
+    # descrito ahi); aqui solo se pide el agregado a 3 clases (n_classes = 3),
+    # que DIGCLASS obtiene colapsando EGP11 via all_schema$egp11_to_egp3.
+    egp3_code = DIGCLASS::isco88_to_egp(
+      isco88_chr,
+      self_employed = selfemp_bin,
+      n_employees = n_employees_egp,
+      n_classes = 3,
+      label = FALSE
+    ),
+    egp3_digclass = factor(
+      egp3_code,
+      levels = as.character(1:3),
+      labels = c("Non-manual workers (I-II+IV.a-b)",
+                 "Farm workers (IV.c+VII.b)",
+                 "Manual workers (V-VI+VII.a)")
+    )
+  )
+
+frq(db_cumu$egp3_digclass)
+```
+
+```{r}
+#| label: esec schema
+
+
+db_cumu <- db_cumu %>%
+  mutate(
+    wrksup_bin = if_else(wrksup == 1, 1, 0),
+    isco88com = DIGCLASS::isco88_to_isco88com(isco88_chr),
+    isco88com_3 = DIGCLASS::isco88_swap(isco88com, from = 4, to = 3),
+    esec9_digclass = DIGCLASS::isco88com_to_esec(
+      isco88com_3,
+      is_supervisor = wrksup_bin,
+      self_employed = selfemp_bin,
+      n_employees = 0, # el cumulativo ISSP no tiene una variable armonizada de N empleados
+      full_method = TRUE
+    ),
+    # Colapso oficial ESeC-9 -> ESeC-5 (Harrison & Rose 2006, ESeC User Guide,
+    # secciones 3.3-3.4): DIGCLASS no ofrece un n_classes para ESeC como si
+    # hace para EGP, por lo que la agregacion de 9 a 5 clases se aplica aqui
+    # siguiendo el modelo de 6 clases oficial y luego combinando clases 5 y 6
+    # (tecnicos de baja cualificacion + rutina) en una sola categoria.
+    esec5_digclass = case_when(
+      esec9_digclass %in% c("1", "2") ~ "1",
+      esec9_digclass %in% c("3", "6") ~ "2",
+      esec9_digclass %in% c("4", "5") ~ "3",
+      esec9_digclass == "7"           ~ "4",
+      esec9_digclass %in% c("8", "9") ~ "5"
+    ),
+    esec5_digclass = factor(
+      esec5_digclass,
+      levels = as.character(1:5),
+      labels = c("Salariat",
+                 "Intermediate employees",
+                 "Small employers and self-employed",
+                 "Lower services, sales and clerical",
+                 "Lower technical and routine")
+    )
+  )
+
+frq(db_cumu$esec5_digclass)
+```
+
+```{r}
+#| label: tbl-class-valid-cases
+#| tbl-cap: "Valid (classifiable) cases by scheme and country"
+#| tbl-cap-location: top
+#| results: asis
+#| echo: false
+#| warning: false
+
+tab_class_valid <- db_cumu %>%
+  group_by(country) %>%
+  summarise(
+    n_total = n(),
+    n_egp5 = sum(!is.na(egp5_digclass)),
+    pct_egp5 = round(n_egp5 / n_total * 100, 1),
+    n_esec5 = sum(!is.na(esec5_digclass)),
+    pct_esec5 = round(n_esec5 / n_total * 100, 1),
+    .groups = "drop"
+  ) %>%
+  arrange(country)
+
+tab_class_valid <- bind_rows(
+  tab_class_valid,
+  tab_class_valid %>%
+    summarise(country = "Total",
+              n_total = sum(n_total),
+              n_egp5 = sum(n_egp5),
+              pct_egp5 = round(n_egp5 / n_total * 100, 1),
+              n_esec5 = sum(n_esec5),
+              pct_esec5 = round(n_esec5 / n_total * 100, 1))
+)
+
+kableExtra::kable(tab_class_valid,
+                  format = "html",
+                  booktabs = TRUE,
+                  align = 'c',
+                  col.names = c("Country", "N total", "N valid", "% valid", "N valid", "% valid")) %>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE) %>%
+  kableExtra::add_header_above(c(" " = 2, "EGP-5" = 2, "ESeC-5" = 2)) %>%
+  kableExtra::row_spec(nrow(tab_class_valid), bold = TRUE)
+```
+
+## Descriptive EGP
+
+### 5 class schema
+
+```{r}
+#| label: fig-egp-country
+#| fig-cap: "EGP-5 class distribution by country (DIGCLASS)"
+#| fig-width: 13
+#| fig-height: 20
+#| echo: false
+#| warning: false
+
+egp_colors_country <- c(
+  "White-collar (I-III)"        = "#2a78d6",
+  "Petty bourgeoisie (IV.a-b)"  = "#eb6834",
+  "Farm workers (IV.c+VII.b)"   = "#1baf7a",
+  "Skilled workers (V-VI)"      = "#eda100",
+  "Non-skilled workers (VII.a)" = "#e87ba4"
+)
+
+tab_egp_country <- db_cumu %>%
+  filter(!is.na(egp5_digclass)) %>%
+  count(country, egp5_digclass, name = "n") %>%
+  group_by(country) %>%
+  mutate(pct = n / sum(n) * 100) %>%
+  ungroup()
+
+ggplot(tab_egp_country, aes(x = egp5_digclass, y = pct, fill = egp5_digclass)) +
+  geom_col(width = 0.7) +
+  facet_wrap(~ country, ncol = 5) +
+  scale_fill_manual(values = egp_colors_country, name = "EGP-5 category") +
+  scale_y_continuous(limits = c(0, max(tab_egp_country$pct) * 1.1), expand = expansion(mult = c(0, 0.02))) +
+  labs(x = NULL, y = "% within country", title = "EGP-5 class distribution by country") +
+  theme_minimal(base_size = 10) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "#c3c2b7", fill = NA, linewidth = 0.4),
+    panel.spacing = unit(0.6, "lines"),
+    strip.text = element_text(face = "bold", color = "#0b0b0b", size = 8),
+    strip.background = element_blank(),
+    plot.title = element_text(color = "#0b0b0b", face = "bold"),
+    plot.background = element_rect(fill = "#fcfcfb", color = NA),
+    panel.background = element_rect(fill = "#fcfcfb", color = NA),
+    legend.position = "bottom"
+  )
+
+```
+
+### 3 class schema
+
+```{r}
+#| label: fig-egp3-country
+#| fig-cap: "EGP-3 class distribution by country (DIGCLASS)"
+#| fig-width: 13
+#| fig-height: 20
+#| echo: false
+#| warning: false
+
+egp3_colors_country <- c(
+  "Non-manual workers (I-II+IV.a-b)" = "#2a78d6",
+  "Farm workers (IV.c+VII.b)"        = "#1baf7a",
+  "Manual workers (V-VI+VII.a)"      = "#eda100"
+)
+
+tab_egp3_country <- db_cumu %>%
+  filter(!is.na(egp3_digclass)) %>%
+  count(country, egp3_digclass, name = "n") %>%
+  group_by(country) %>%
+  mutate(pct = n / sum(n) * 100) %>%
+  ungroup()
+
+ggplot(tab_egp3_country, aes(x = egp3_digclass, y = pct, fill = egp3_digclass)) +
+  geom_col(width = 0.7) +
+  facet_wrap(~ country, ncol = 5) +
+  scale_fill_manual(values = egp3_colors_country, name = "EGP-3 category") +
+  scale_y_continuous(limits = c(0, max(tab_egp3_country$pct) * 1.1), expand = expansion(mult = c(0, 0.02))) +
+  labs(x = NULL, y = "% within country", title = "EGP-3 class distribution by country") +
+  theme_minimal(base_size = 10) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "#c3c2b7", fill = NA, linewidth = 0.4),
+    panel.spacing = unit(0.6, "lines"),
+    strip.text = element_text(face = "bold", color = "#0b0b0b", size = 8),
+    strip.background = element_blank(),
+    plot.title = element_text(color = "#0b0b0b", face = "bold"),
+    plot.background = element_rect(fill = "#fcfcfb", color = NA),
+    panel.background = element_rect(fill = "#fcfcfb", color = NA),
+    legend.position = "bottom"
+  )
+
+```
+
+## Descriptive ESeC
+
+```{r}
+#| label: fig-esec-country
+#| fig-cap: "ESeC-5 class distribution by country (DIGCLASS)"
+#| fig-width: 13
+#| fig-height: 20
+#| echo: false
+#| warning: false
+
+esec_colors_country <- c(
+  "Salariat"                            = "#2a78d6",
+  "Intermediate employees"              = "#eb6834",
+  "Small employers and self-employed"   = "#1baf7a",
+  "Lower services, sales and clerical"  = "#eda100",
+  "Lower technical and routine"         = "#e87ba4"
+)
+
+tab_esec_country <- db_cumu %>%
+  filter(!is.na(esec5_digclass)) %>%
+  count(country, esec5_digclass, name = "n") %>%
+  group_by(country) %>%
+  mutate(pct = n / sum(n) * 100) %>%
+  ungroup()
+
+ggplot(tab_esec_country, aes(x = esec5_digclass, y = pct, fill = esec5_digclass)) +
+  geom_col(width = 0.7) +
+  facet_wrap(~ country, ncol = 5) +
+  scale_fill_manual(values = esec_colors_country, name = "ESeC-5 category") +
+  scale_y_continuous(limits = c(0, max(tab_esec_country$pct) * 1.1), expand = expansion(mult = c(0, 0.02))) +
+  labs(x = NULL, y = "% within country", title = "ESeC-5 class distribution by country") +
+  theme_minimal(base_size = 10) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(color = "#c3c2b7", fill = NA, linewidth = 0.4),
+    panel.spacing = unit(0.6, "lines"),
+    strip.text = element_text(face = "bold", color = "#0b0b0b", size = 8),
+    strip.background = element_blank(),
+    plot.title = element_text(color = "#0b0b0b", face = "bold"),
+    plot.background = element_rect(fill = "#fcfcfb", color = NA),
+    panel.background = element_rect(fill = "#fcfcfb", color = NA),
+    legend.position = "bottom"
+  )
+
+```
+
+To select the most appropriate class scheme, we consider two factors: 1) the number of valid cases and 2) the distribution of the classes. 
+
+In the case of the EGP classification scheme, we first tested its 5-class version (see @fig-egp-country), where we observed that White-collar workers are the largest category in all countries, followed by Skilled workers. The Petty Bourgeoisie varies in prevalence depending on the country, while Farm Workers and Unskilled workers are nearly nonexistent in most countries. Due to this overrepresentation of certain classes, we decided to test in additional way the 3-class EGP framework (see @fig-egp3-country). Here, we see a slightly more balanced distribution between non-manual workers and manual workers, while farm workers continue to represent a minimal percentage of the population. 
+
+We then tested the 5-category ESeC framework (see @fig-esec-country). Although the category of salariats is the most prevalent in most countries, the other categories also have levels of frequency that can be useful when considering the analysis phase. Compared to the five-class EGP framework, the ESeC framework is better able to identify the various socioeconomic sectors that exist today.
+
+Therefore, even though the EGP framework has a higher number of valid cases than the ESeC framework (~5%), the latter allows for a better observation of differences in objective status, making it a better alternative for the operationalization of class in international comparisons
 
 ## Market justice
 
 ```{r}
-db_proc <- db_proc %>%
+db_cumu <- db_cumu %>%
   mutate(market_justice = (just_health + just_educ) / 2)
 ```
 
@@ -1935,7 +2416,7 @@ db_proc <- db_proc %>%
 #| echo: false
 #| warning: false
 
-tab_mj <- db_proc %>%
+tab_mj <- db_cumu %>%
   group_by(country, year) %>%
   summarise(market_justice = mean(market_justice, na.rm = TRUE), .groups = "drop") %>%
   tidyr::pivot_wider(names_from = year, values_from = market_justice) %>%
@@ -1967,63 +2448,6 @@ kableExtra::kable(tab_mj_fmt,
 
 ```
 
-## Class
-
-```{r}
-#| label: fig-egp-wave
-#| fig-cap: "Class structure (EGP-5) by ISSP wave"
-#| fig-width: 11
-#| fig-height: 4.5
-#| echo: false
-#| warning: false
-
-egp_labels <- c(
-  "I-III      White-collar workers" = "White-collar (I-III)",
-  "IV.a+IV.b  Petty bourgeoisie"    = "Petty bourgeoisie (IV.a-b)",
-  "IV.c+VII.b Farm workers"         = "Farm workers (IV.c+VII.b)",
-  "V+VI       Skilled workers"      = "Skilled workers (V-VI)",
-  "VII.a      Non-skilled workers"  = "Non-skilled workers (VII.a)"
-)
-
-egp_colors <- c(
-  "White-collar (I-III)"        = "#2a78d6",
-  "Petty bourgeoisie (IV.a-b)"  = "#eb6834",
-  "Farm workers (IV.c+VII.b)"   = "#1baf7a",
-  "Skilled workers (V-VI)"      = "#eda100",
-  "Non-skilled workers (VII.a)" = "#e87ba4"
-)
-
-tab_egp <- db_proc %>%
-  filter(!is.na(egp5)) %>%
-  mutate(egp5_lab = factor(egp_labels[as.character(egp5)], levels = egp_labels)) %>%
-  count(year, egp5_lab, name = "n") %>%
-  group_by(year) %>%
-  mutate(pct = n / sum(n) * 100) %>%
-  ungroup()
-
-ggplot(tab_egp, aes(x = egp5_lab, y = pct, fill = egp5_lab)) +
-  geom_col(width = 0.7) +
-  geom_text(aes(label = sprintf("%.0f%%", pct)), hjust = -0.2, size = 3, color = "#0b0b0b") +
-  coord_flip(clip = "off") +
-  facet_wrap(~ year, nrow = 1) +
-  scale_fill_manual(values = egp_colors, guide = "none") +
-  scale_y_continuous(limits = c(0, max(tab_egp$pct) * 1.2), expand = expansion(mult = c(0, 0.02))) +
-  labs(x = NULL, y = "% within wave", title = "Class structure (EGP-5) by ISSP wave") +
-  theme_minimal(base_size = 11) +
-  theme(
-    panel.grid.major.y = element_blank(),
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_line(color = "#e1e0d9"),
-    axis.line.x = element_line(color = "#c3c2b7"),
-    axis.text = element_text(color = "#52514e"),
-    strip.text = element_text(face = "bold", color = "#0b0b0b"),
-    strip.background = element_blank(),
-    plot.title = element_text(color = "#0b0b0b", face = "bold"),
-    plot.background = element_rect(fill = "#fcfcfb", color = NA),
-    panel.background = element_rect(fill = "#fcfcfb", color = NA)
-  )
-
-```
 
 ## Social subjective status
 
@@ -2037,7 +2461,7 @@ ggplot(tab_egp, aes(x = egp5_lab, y = pct, fill = egp5_lab)) +
 
 ess_colors <- c("1999" = "#2a78d6", "2009" = "#eb6834", "2019" = "#1baf7a")
 
-tab_ess <- db_proc %>%
+tab_ess <- db_cumu %>%
   filter(!is.na(ess), ess >= 1, ess <= 10) %>%
   mutate(wave = factor(year)) %>%
   count(wave, ess, name = "n") %>%
@@ -2082,11 +2506,22 @@ ggplot(tab_ess, aes(x = ess, y = pct, color = wave, group = wave)) +
 #| echo: false
 #| warning: false
 
-tab_me <- db_proc %>%
+tab_me_1999 <- db_proc %>%
+  # merit_effort (cumulative v6, "how important is hard work") is 100% NA for
+  # 1999 in db_cumu: ese item no se administro en el modulo de 1999. Se usa en
+  # su lugar el item mas cercano disponible ese ano ("people get rewarded for
+  # their effort", v6 del archivo original 1999), ya calculado en db_proc.
+  filter(year == 1999, !is.na(merit_effort)) %>%
+  summarise(wave = "1999", mean_effort = mean(merit_effort))
+
+tab_me_cumu <- db_cumu %>%
   filter(!is.na(merit_effort)) %>%
-  mutate(wave = factor(year)) %>%
+  mutate(wave = as.character(year)) %>%
   group_by(wave) %>%
   summarise(mean_effort = mean(merit_effort), .groups = "drop")
+
+tab_me <- bind_rows(tab_me_1999, tab_me_cumu) %>%
+  mutate(wave = factor(wave, levels = c("1999", "2009", "2019")))
 
 ggplot(tab_me, aes(x = wave, y = mean_effort)) +
   geom_col(fill = "#2a78d6", width = 0.55) +
@@ -2094,7 +2529,7 @@ ggplot(tab_me, aes(x = wave, y = mean_effort)) +
   scale_y_continuous(limits = c(0, max(tab_me$mean_effort) * 1.18), expand = expansion(mult = c(0, 0))) +
   labs(x = NULL, y = "Mean merit_effort (1-5)",
        title = "Belief in the importance/reward of effort, by ISSP wave",
-       caption = "Note: 1999 measures a different item (\"people get rewarded for their effort\", agree-disagree)\nthan 2009/2019 (\"how important is hard work for getting ahead\"). Not directly comparable.") +
+       caption = "Note: 1999 measures a different item (\"people get rewarded for their effort\", agree-disagree)\nthan 2009/2019 (\"how important is hard work for getting ahead\", ISSP cumulative v6). Not directly comparable.") +
   theme_minimal(base_size = 12) +
   theme(
     panel.grid.minor = element_blank(),
